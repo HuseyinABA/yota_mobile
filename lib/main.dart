@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'features/auth/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,14 +20,7 @@ class YotaApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF3F4F6),
         textTheme: GoogleFonts.interTextTheme(), 
       ),
-      home: const Scaffold(
-        body: Center(
-          child: Text(
-            'YOTA Mobil Altyapısı Hazır 🚀',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
-      ),
+      home: const LoginScreen(),
     );
   }
 }

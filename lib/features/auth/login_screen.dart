@@ -1,0 +1,147 @@
+import 'package:flutter/material.dart';
+import '../../shared/main_layout.dart';
+import 'auth_service.dart';
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
+  bool _isLoading = false;
+
+  void _handleLogin() async {
+    setState(() => _isLoading = true);
+    
+    bool success = await _authService.login(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+
+    setState(() => _isLoading = false);
+
+    if (success) {
+      if (!mounted) return;
+      // Giriş başarılıysa alt tarafta yeşil neon bir uyarı ver ve içeri al
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('KİMLİK DOĞRULANDI. SİSTEME GİRİŞ YAPILIYOR...', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          backgroundColor: const Color(0xFF131C2D),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Colors.greenAccent)),
+        ),
+      );
+      
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainLayout()));
+      });
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('ERİŞİM REDDEDİLDİ. YETKİSİZ GİRİŞ.', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          backgroundColor: const Color(0xFF131C2D),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Colors.redAccent)),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF090E17), // YOTA VISION Karanlığı
+      body: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Container(
+              padding: const EdgeInsets.all(40.0),
+              constraints: const BoxConstraints(maxWidth: 450), // Mobilde tam ekran, Web'de şık bir kart
+              decoration: BoxDecoration(
+                color: const Color(0xFF131C2D),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: Colors.cyanAccent.withOpacity(0.3)),
+                boxShadow: [
+                  BoxShadow(color: Colors.cyanAccent.withOpacity(0.05), blurRadius: 30, spreadRadius: 5)
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.shield, size: 72, color: Colors.cyanAccent),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'YOTA SECURE ACCESS',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 2),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Operasyon Merkezi Kimlik Doğrulaması',
+                    style: TextStyle(color: Colors.white54, fontSize: 14),
+                  ),
+                  const SizedBox(height: 48),
+                  
+                  // E-POSTA ALANI
+                  TextField(
+                    controller: _emailController,
+                    style: const TextStyle(color: Colors.cyanAccent),
+                    decoration: InputDecoration(
+                      labelText: 'SİSTEM ID (E-POSTA)',
+                      labelStyle: const TextStyle(color: Colors.white38, letterSpacing: 1),
+                      prefixIcon: const Icon(Icons.fingerprint, color: Colors.cyanAccent),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white12)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyanAccent)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // ŞİFRE ALANI
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.cyanAccent),
+                    decoration: InputDecoration(
+                      labelText: 'GÜVENLİK ANAHTARI (ŞİFRE)',
+                      labelStyle: const TextStyle(color: Colors.white38, letterSpacing: 1),
+                      prefixIcon: const Icon(Icons.lock_outline, color: Colors.cyanAccent),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white12)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.cyanAccent)),
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  
+                  // GİRİŞ BUTONU
+                  SizedBox(
+                    width: double.infinity,
+                    height: 55,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.cyanAccent.withOpacity(0.9),
+                        foregroundColor: const Color(0xFF090E17),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 10,
+                        shadowColor: Colors.cyanAccent,
+                      ),
+                      child: _isLoading 
+                          ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Color(0xFF090E17), strokeWidth: 3))
+                          : const Text('AĞA BAĞLAN', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
