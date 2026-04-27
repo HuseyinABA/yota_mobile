@@ -17,8 +17,10 @@ class _OperationScreenState extends State<OperationScreen> {
   int _speed = 0;
   int _distance = 240; 
   Timer? _timer;
-  Timer? _dbRefreshTimer; // OTOMATİK YENİLEME ZAMANLAYICISI
+  Timer? _dbRefreshTimer; 
+  
   bool _isLoadingDb = true;
+  bool _isOffline = false;
 
   final List<String> _liveLogs = [];
   List<Map<String, dynamic>> _passengers = [];
@@ -28,9 +30,8 @@ class _OperationScreenState extends State<OperationScreen> {
     super.initState();
     _loadManifestFromDatabase(); 
     
-    // HER 10 SANİYEDE BİR ARKA PLANDA VERİTABANINI KONTROL ET
     _dbRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      if (!_isRunning) { // Eğer araç hareket halinde değilse otomatik tazele
+      if (!_isRunning) {
         _loadManifestFromDatabase();
       }
     });
@@ -39,34 +40,53 @@ class _OperationScreenState extends State<OperationScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    _dbRefreshTimer?.cancel(); // Sayfa kapanınca zamanlayıcıyı da öldür
+    _dbRefreshTimer?.cancel(); 
     super.dispose();
   }
 
   Future<void> _loadManifestFromDatabase() async {
-    _addLog('📡 SİSTEM: Veritabanına bağlanılıyor...');
-    
-    final dbData = await _tripService.getManifest(1); 
-    
-    if (dbData != null) {
-      if (!mounted) return;
-      setState(() {
-        _passengers = dbData.map<Map<String, dynamic>>((p) => {
-          'name': p['passenger_name'] ?? 'Bilinmeyen Yolcu',
-          'gender': p['gender'] ?? 'M', 
-          'seat': p['seat_number'],
-          'dropoff': p['dropoff_station'] ?? 'Son Durak',
-          'boarded': false,
-          'alighted': false
-        }).toList();
-        _isLoadingDb = false;
-      });
-      _addLog('✅ BAĞLANTI BAŞARILI: Veritabanından ${_passengers.length} yolcu çekildi.');
-    } else {
-      if (!mounted) return;
-      setState(() => _isLoadingDb = false);
-      _addLog('❌ BAĞLANTI HATASI: Sunucuya ulaşılamadı veya sefer boş.');
+    if (_passengers.isEmpty && !_isOffline) {
+       _addLog('📡 SİSTEM: Uydu bağlantısı aranıyor...');
     }
+    
+    try {
+      final dbData = await _tripService.getManifest(1); 
+      
+      if (dbData != null) {
+        if (!mounted) return;
+        setState(() {
+          _passengers = dbData.map<Map<String, dynamic>>((p) => {
+            'name': p['passenger_name'] ?? 'Bilinmeyen Yolcu',
+            'gender': p['gender'] ?? 'M', 
+            'seat': p['seat_number'],
+            'dropoff': p['dropoff_station'] ?? 'Kastamonu',
+            'boarded': false,
+            'alighted': false
+          }).toList();
+          _isLoadingDb = false;
+          
+          if (_isOffline) {
+            _isOffline = false;
+            _addLog('🟢 BAĞLANTI GELDİ: Sistem tekrar çevrimiçi.');
+          }
+        });
+      } else {
+        _handleOfflineMode();
+      }
+    } catch (e) {
+      _handleOfflineMode();
+    }
+  }
+
+  void _handleOfflineMode() {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingDb = false;
+      if (!_isOffline) {
+        _isOffline = true;
+        _addLog('🔴 BAĞLANTI KOPTU: Çevrimdışı (Offline) Moda Geçildi.');
+      }
+    });
   }
 
   void _addLog(String message) {
@@ -130,6 +150,8 @@ class _OperationScreenState extends State<OperationScreen> {
       backgroundColor: const Color(0xFF090E17), 
       appBar: AppBar(
         backgroundColor: const Color(0xFF131C2D),
+        elevation: 5,
+        shadowColor: Colors.cyanAccent.withOpacity(0.2),
         title: Row(
           children: [
             const Icon(Icons.blur_on, color: Colors.cyanAccent, size: 28),
@@ -139,15 +161,22 @@ class _OperationScreenState extends State<OperationScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.greenAccent.withOpacity(0.1), 
+                color: _isOffline ? Colors.redAccent.withOpacity(0.1) : Colors.greenAccent.withOpacity(0.1), 
                 borderRadius: BorderRadius.circular(20), 
-                border: Border.all(color: Colors.greenAccent)
+                border: Border.all(color: _isOffline ? Colors.redAccent : Colors.greenAccent)
               ),
               child: Row(
                 children: [
-                  Icon(Icons.circle, color: _isLoadingDb ? Colors.orange : Colors.greenAccent, size: 10),
+                  Icon(
+                    _isOffline ? Icons.wifi_off : Icons.circle, 
+                    color: _isOffline ? Colors.redAccent : (_isLoadingDb ? Colors.orange : Colors.greenAccent), 
+                    size: 12
+                  ),
                   const SizedBox(width: 8),
-                  Text(_isLoadingDb ? 'BAĞLANIYOR...' : 'DB AKTİF', style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  Text(
+                    _isOffline ? 'ÇEVRİMDİŞİ MOD' : (_isLoadingDb ? 'BAĞLANIYOR...' : 'SİSTEM AKTİF'), 
+                    style: TextStyle(color: _isOffline ? Colors.redAccent : Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)
+                  ),
                 ],
               ),
             )
@@ -156,7 +185,7 @@ class _OperationScreenState extends State<OperationScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.cyanAccent),
-            tooltip: 'Veritabanını Yenile',
+            tooltip: 'Ağı Yenile',
             onPressed: () {
               setState(() => _isLoadingDb = true);
               _loadManifestFromDatabase();
@@ -165,22 +194,33 @@ class _OperationScreenState extends State<OperationScreen> {
           const SizedBox(width: 16),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
+      // MİMARİ DEĞİŞİKLİK: Ekranı sıkıştırmamak için SingleChildScrollView kullanıyoruz
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // 1. ÜST PANEL (TELEMETRİ)
             _buildTelemetryPanel(),
-            const SizedBox(height: 20),
-            Expanded(
+            const SizedBox(height: 24),
+            
+            // 2. ORTA PANEL (KOKPİT VE LOGLAR) - Sabit Yükseklik Verildi
+            SizedBox(
+              height: 480, // İçerik ezilmesin diye ferah bir yükseklik
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(flex: 3, child: _buildRealisticCockpit()),
-                  const SizedBox(width: 20),
+                  const SizedBox(width: 24),
                   Expanded(flex: 2, child: _buildLiveFeedPanel()),
                 ],
               ),
             ),
+            const SizedBox(height: 24),
+
+            // 3. ALT PANEL (YOLCU VERİ TABLOSU) - Kendi uzunluğunu serbestçe belirler
+            _buildPassengerTable(),
+            const SizedBox(height: 40), // En alttan biraz boşluk
           ],
         ),
       ),
@@ -207,11 +247,12 @@ class _OperationScreenState extends State<OperationScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
-              Text('KALKIŞ', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-              Text('VARIŞ', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              Text('ANKARA', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              Text('ILGAZ', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+              Text('KASTAMONU', style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Stack(
             alignment: Alignment.centerLeft,
             children: [
@@ -232,7 +273,7 @@ class _OperationScreenState extends State<OperationScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -267,7 +308,7 @@ class _OperationScreenState extends State<OperationScreen> {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Text(value, style: TextStyle(color: color, fontSize: 42, fontWeight: FontWeight.w900, fontFamily: 'Courier')),
+            Text(value, style: TextStyle(color: color, fontSize: 40, fontWeight: FontWeight.w900, fontFamily: 'Courier')),
             const SizedBox(width: 6),
             Text(unit, style: const TextStyle(color: Colors.white54, fontSize: 16)),
           ],
@@ -301,26 +342,11 @@ class _OperationScreenState extends State<OperationScreen> {
             ),
           ),
           const Divider(height: 1, color: Colors.white10),
-          
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.directions_bus, color: Colors.white54, size: 32),
-                ),
-              ],
-            ),
-          ),
-
           Expanded(
-            child: _isLoadingDb 
+            child: _isLoadingDb && _passengers.isEmpty
               ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
               : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
               itemCount: 13, 
               itemBuilder: (context, index) {
                 if (index < 12) {
@@ -331,7 +357,7 @@ class _OperationScreenState extends State<OperationScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         _buildSeat(baseSeat), 
-                        const SizedBox(width: 60), 
+                        const SizedBox(width: 50), // Koridor Boşluğu
                         _buildSeat(baseSeat + 1), 
                         const SizedBox(width: 12),
                         _buildSeat(baseSeat + 2), 
@@ -376,34 +402,25 @@ class _OperationScreenState extends State<OperationScreen> {
     if (passengerInfo != null) {
       seatColor = passengerInfo['gender'] == 'F' ? Colors.pinkAccent.withOpacity(0.8) : Colors.blueAccent.withOpacity(0.8);
       borderColor = passengerInfo['gender'] == 'F' ? Colors.pinkAccent : Colors.blueAccent;
-      glow = [BoxShadow(color: seatColor.withOpacity(0.6), blurRadius: 12, spreadRadius: 1)];
+      glow = [BoxShadow(color: seatColor.withOpacity(0.6), blurRadius: 10, spreadRadius: 1)];
     }
 
     Widget seatWidget = InkWell(
       onTap: passengerInfo == null ? null : () => _showPassengerDetails(passengerInfo),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        width: 50,
-        height: 55,
+        width: 48, // Koltukları biraz daha büyüttük
+        height: 52,
         decoration: BoxDecoration(
           color: seatColor,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(12),
-            topRight: Radius.circular(12),
-            bottomLeft: Radius.circular(6),
-            bottomRight: Radius.circular(6),
-          ),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: borderColor, width: 1.5),
           boxShadow: glow,
         ),
         child: Center(
           child: Text(
             seatNumber.toString(),
-            style: TextStyle(
-              color: passengerInfo != null ? Colors.white : Colors.white38,
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
+            style: TextStyle(color: passengerInfo != null ? Colors.white : Colors.white38, fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ),
       ),
@@ -417,11 +434,9 @@ class _OperationScreenState extends State<OperationScreen> {
         color: const Color(0xFF0F172A).withOpacity(0.95), 
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
-        boxShadow: [BoxShadow(color: Colors.cyanAccent.withOpacity(0.2), blurRadius: 10)],
       ),
-      textStyle: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, height: 1.5, letterSpacing: 1),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      waitDuration: const Duration(milliseconds: 150), 
+      textStyle: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: seatWidget,
     );
   }
@@ -429,13 +444,91 @@ class _OperationScreenState extends State<OperationScreen> {
   Widget _buildLegend(Color color, String text) {
     return Row(
       children: [
-        Container(
-          width: 16, height: 16, 
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.white24))
-        ),
+        Container(width: 14, height: 14, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
         const SizedBox(width: 8),
         Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
       ],
+    );
+  }
+
+  Widget _buildPassengerTable() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.cyanAccent.withOpacity(0.15)),
+        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 15, spreadRadius: 5)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.cyan.withOpacity(0.05), borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+            child: const Text('YOLCU MANİFESTOSU VE BİLET DURUMU', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 16)),
+          ),
+          const Divider(height: 1, color: Colors.white10),
+          
+          _passengers.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.all(40.0),
+                  child: Center(child: Text('Veritabanında kayıtlı yolcu bulunmuyor.', style: TextStyle(color: Colors.white54, fontSize: 16))),
+                )
+              : SizedBox(
+                  width: double.infinity, // Tabloyu tüm genişliğe yayar
+                  child: DataTable(
+                    headingRowColor: MaterialStateProperty.all(Colors.white.withOpacity(0.02)),
+                    headingTextStyle: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                    dataTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+                    columnSpacing: 24, // Sütunlar arası boşluk
+                    horizontalMargin: 24,
+                    columns: const [
+                      DataColumn(label: Text('NO')),
+                      DataColumn(label: Text('PNR')),
+                      DataColumn(label: Text('AD SOYAD')),
+                      DataColumn(label: Text('CİNSİYET')),
+                      DataColumn(label: Text('KALKIŞ')),
+                      DataColumn(label: Text('VARIŞ')),
+                      DataColumn(label: Text('DURUM')),
+                    ],
+                    rows: _passengers.map((p) {
+                      String pnr = 'TR-20${p['seat'].toString().padLeft(2, '0')}';
+                      bool isFemale = p['gender'] == 'F';
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(p['seat'].toString(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                          DataCell(Text(pnr, style: const TextStyle(color: Colors.white70, fontFamily: 'Courier'))),
+                          DataCell(Text(p['name'], style: const TextStyle(fontWeight: FontWeight.w500))),
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isFemale ? Colors.pinkAccent.withOpacity(0.1) : Colors.blueAccent.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: isFemale ? Colors.pinkAccent.withOpacity(0.5) : Colors.blueAccent.withOpacity(0.5)),
+                              ),
+                              child: Text(isFemale ? 'Kadın' : 'Erkek', style: TextStyle(color: isFemale ? Colors.pinkAccent : Colors.blueAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                            )
+                          ),
+                          const DataCell(Text('Ankara', style: TextStyle(color: Colors.white70))),
+                          DataCell(Text(p['dropoff'], style: const TextStyle(color: Colors.white70))),
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(p['alighted'] ? Icons.check_circle : Icons.event_seat, color: p['alighted'] ? Colors.redAccent : Colors.greenAccent, size: 18),
+                                const SizedBox(width: 8),
+                                Text(p['alighted'] ? 'İndi' : 'Araçta', style: TextStyle(color: p['alighted'] ? Colors.redAccent : Colors.greenAccent, fontWeight: FontWeight.bold)),
+                              ],
+                            )
+                          ),
+                        ]
+                      );
+                    }).toList(),
+                  ),
+                ),
+        ],
+      ),
     );
   }
 
@@ -444,10 +537,7 @@ class _OperationScreenState extends State<OperationScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF131C2D),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.cyanAccent.withOpacity(0.5)),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.cyanAccent.withOpacity(0.5))),
         title: Row(
           children: [
             Icon(Icons.person, color: passenger['gender'] == 'F' ? Colors.pinkAccent : Colors.blueAccent),
@@ -477,16 +567,13 @@ class _OperationScreenState extends State<OperationScreen> {
                 },
                 icon: const Icon(Icons.logout, color: Colors.white),
                 label: const Text('YOLCU İNDİ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.7)),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.7), padding: const EdgeInsets.symmetric(vertical: 12)),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('KAPAT', style: TextStyle(color: Colors.cyanAccent)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('KAPAT', style: TextStyle(color: Colors.cyanAccent))),
         ],
       ),
     );
@@ -530,8 +617,8 @@ class _OperationScreenState extends State<OperationScreen> {
                 Color logColor = Colors.white60;
                 IconData icon = Icons.info_outline;
 
-                if (log.contains('BİNİŞ') || log.contains('BAŞARILI')) { logColor = Colors.greenAccent; icon = Icons.check_circle; }
-                else if (log.contains('İNİŞ') || log.contains('HATASI') || log.contains('MANUEL')) { logColor = Colors.redAccent; icon = Icons.error_outline; }
+                if (log.contains('BİNİŞ') || log.contains('BAŞARILI') || log.contains('GELDİ')) { logColor = Colors.greenAccent; icon = Icons.check_circle; }
+                else if (log.contains('İNİŞ') || log.contains('HATASI') || log.contains('KOPTU') || log.contains('MANUEL')) { logColor = Colors.redAccent; icon = Icons.error_outline; }
                 else if (log.contains('SİSTEM')) { logColor = Colors.cyanAccent; icon = Icons.wifi; }
 
                 return Padding(
