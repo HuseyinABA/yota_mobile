@@ -17,13 +17,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Ekran açılır açılmaz veritabanından anlık istatistikleri çek!
     _statsFuture = _dashboardService.getSystemStats();
   }
 
   void _logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token'); // Güvenlik anahtarını imha et
+    await prefs.remove('auth_token'); 
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -34,7 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF090E17), // Derin YOTA Karanlığı
+      backgroundColor: const Color(0xFF090E17), 
       appBar: AppBar(
         backgroundColor: const Color(0xFF131C2D),
         title: Row(
@@ -91,9 +90,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.cyanAccent, letterSpacing: 2),
                 ),
                 const SizedBox(height: 24),
+                
+                // FİLO DOLULUK ANALİZİ ÇİZELGESİ
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF131C2D),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.cyanAccent.withOpacity(0.1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('FİLO DOLULUK ANALİZİ', style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2)),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: 0.65, // Bu değer ileride API'den gelecek
+                              backgroundColor: Colors.black26,
+                              color: Colors.cyanAccent,
+                              minHeight: 12,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          const Text('%65', style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold, fontSize: 18)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
                 Expanded(
                   child: GridView.count(
-                    crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2, // Geniş ekranda 4'lü, dar ekranda 2'li yan yana
+                    crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2, 
                     crossAxisSpacing: 20,
                     mainAxisSpacing: 20,
                     childAspectRatio: 1.3,
@@ -113,7 +146,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Neon Parlamalı Kurumsal Kart Tasarımı
   Widget _buildNeonStatCard(String title, String value, IconData icon, Color neonColor) {
     return Container(
       decoration: BoxDecoration(
@@ -129,7 +161,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Positioned(
             right: -20,
             top: -20,
-            child: Icon(icon, size: 100, color: neonColor.withOpacity(0.05)), // Arka plan dev ikon efekti
+            child: Icon(icon, size: 100, color: neonColor.withOpacity(0.05)), 
           ),
           Padding(
             padding: const EdgeInsets.all(20.0),

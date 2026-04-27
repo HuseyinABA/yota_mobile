@@ -17,6 +17,7 @@ class _OperationScreenState extends State<OperationScreen> {
   int _speed = 0;
   int _distance = 240; 
   Timer? _timer;
+  Timer? _dbRefreshTimer; // OTOMATİK YENİLEME ZAMANLAYICISI
   bool _isLoadingDb = true;
 
   final List<String> _liveLogs = [];
@@ -26,11 +27,19 @@ class _OperationScreenState extends State<OperationScreen> {
   void initState() {
     super.initState();
     _loadManifestFromDatabase(); 
+    
+    // HER 10 SANİYEDE BİR ARKA PLANDA VERİTABANINI KONTROL ET
+    _dbRefreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (!_isRunning) { // Eğer araç hareket halinde değilse otomatik tazele
+        _loadManifestFromDatabase();
+      }
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _dbRefreshTimer?.cancel(); // Sayfa kapanınca zamanlayıcıyı da öldür
     super.dispose();
   }
 
@@ -40,6 +49,7 @@ class _OperationScreenState extends State<OperationScreen> {
     final dbData = await _tripService.getManifest(1); 
     
     if (dbData != null) {
+      if (!mounted) return;
       setState(() {
         _passengers = dbData.map<Map<String, dynamic>>((p) => {
           'name': p['passenger_name'] ?? 'Bilinmeyen Yolcu',
@@ -53,12 +63,14 @@ class _OperationScreenState extends State<OperationScreen> {
       });
       _addLog('✅ BAĞLANTI BAŞARILI: Veritabanından ${_passengers.length} yolcu çekildi.');
     } else {
+      if (!mounted) return;
       setState(() => _isLoadingDb = false);
       _addLog('❌ BAĞLANTI HATASI: Sunucuya ulaşılamadı veya sefer boş.');
     }
   }
 
   void _addLog(String message) {
+    if (!mounted) return;
     setState(() {
       _liveLogs.insert(0, "${DateTime.now().hour.toString().padLeft(2,'0')}:${DateTime.now().minute.toString().padLeft(2,'0')} - $message");
     });
@@ -87,6 +99,7 @@ class _OperationScreenState extends State<OperationScreen> {
       }
 
       _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+        if (!mounted) return;
         setState(() {
           _progress += 0.02; 
           _distance = (240 - (240 * _progress)).toInt();
@@ -366,7 +379,6 @@ class _OperationScreenState extends State<OperationScreen> {
       glow = [BoxShadow(color: seatColor.withOpacity(0.6), blurRadius: 12, spreadRadius: 1)];
     }
 
-    // Tıklanabilir İskelet
     Widget seatWidget = InkWell(
       onTap: passengerInfo == null ? null : () => _showPassengerDetails(passengerInfo),
       borderRadius: BorderRadius.circular(12),
@@ -397,20 +409,19 @@ class _OperationScreenState extends State<OperationScreen> {
       ),
     );
 
-    // Eğer koltuk boşsa normal koltuğu döndür, doluysa MUHTEŞEM BİR HOVER (TOOLTIP) İÇİNE AL
     if (passengerInfo == null) return seatWidget;
 
     return Tooltip(
       message: '${passengerInfo['name']}\nVarış: ${passengerInfo['dropoff']}',
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withOpacity(0.95), // Koyu arka plan
+        color: const Color(0xFF0F172A).withOpacity(0.95), 
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
         boxShadow: [BoxShadow(color: Colors.cyanAccent.withOpacity(0.2), blurRadius: 10)],
       ),
       textStyle: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, height: 1.5, letterSpacing: 1),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      waitDuration: const Duration(milliseconds: 150), // Mouse gelince hemen açılsın
+      waitDuration: const Duration(milliseconds: 150), 
       child: seatWidget,
     );
   }
