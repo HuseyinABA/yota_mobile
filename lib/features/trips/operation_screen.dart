@@ -20,14 +20,12 @@ class _OperationScreenState extends State<OperationScreen> {
   bool _isLoadingDb = true;
 
   final List<String> _liveLogs = [];
-  
-  // ARTIK SAHTE VERİ YOK! Veritabanından dolacak boş liste:
   List<Map<String, dynamic>> _passengers = [];
 
   @override
   void initState() {
     super.initState();
-    _loadManifestFromDatabase(); // Sayfa açılır açılmaz DB'ye bağlan
+    _loadManifestFromDatabase(); 
   }
 
   @override
@@ -36,19 +34,16 @@ class _OperationScreenState extends State<OperationScreen> {
     super.dispose();
   }
 
-  // --- NODE.JS & POSTGRESQL BAĞLANTISI ---
   Future<void> _loadManifestFromDatabase() async {
     _addLog('📡 SİSTEM: Veritabanına bağlanılıyor...');
     
-    // 1 Numaralı seferin yolcularını Backend'den çekiyoruz
     final dbData = await _tripService.getManifest(1); 
     
     if (dbData != null) {
       setState(() {
-        // Backend'den gelen karmaşık SQL verisini UI'ın anlayacağı formata çeviriyoruz
         _passengers = dbData.map<Map<String, dynamic>>((p) => {
           'name': p['passenger_name'] ?? 'Bilinmeyen Yolcu',
-          'gender': p['gender'] ?? 'M', // Eğer DB'de cinsiyet yoksa varsayılan
+          'gender': p['gender'] ?? 'M', 
           'seat': p['seat_number'],
           'dropoff': p['dropoff_station'] ?? 'Son Durak',
           'boarded': false,
@@ -371,30 +366,52 @@ class _OperationScreenState extends State<OperationScreen> {
       glow = [BoxShadow(color: seatColor.withOpacity(0.6), blurRadius: 12, spreadRadius: 1)];
     }
 
-    return Container(
-      width: 50,
-      height: 55,
-      decoration: BoxDecoration(
-        color: seatColor,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-          bottomLeft: Radius.circular(6),
-          bottomRight: Radius.circular(6),
+    // Tıklanabilir İskelet
+    Widget seatWidget = InkWell(
+      onTap: passengerInfo == null ? null : () => _showPassengerDetails(passengerInfo),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 50,
+        height: 55,
+        decoration: BoxDecoration(
+          color: seatColor,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(12),
+            topRight: Radius.circular(12),
+            bottomLeft: Radius.circular(6),
+            bottomRight: Radius.circular(6),
+          ),
+          border: Border.all(color: borderColor, width: 1.5),
+          boxShadow: glow,
         ),
-        border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: glow,
-      ),
-      child: Center(
-        child: Text(
-          seatNumber.toString(),
-          style: TextStyle(
-            color: passengerInfo != null ? Colors.white : Colors.white38,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
+        child: Center(
+          child: Text(
+            seatNumber.toString(),
+            style: TextStyle(
+              color: passengerInfo != null ? Colors.white : Colors.white38,
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
           ),
         ),
       ),
+    );
+
+    // Eğer koltuk boşsa normal koltuğu döndür, doluysa MUHTEŞEM BİR HOVER (TOOLTIP) İÇİNE AL
+    if (passengerInfo == null) return seatWidget;
+
+    return Tooltip(
+      message: '${passengerInfo['name']}\nVarış: ${passengerInfo['dropoff']}',
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withOpacity(0.95), // Koyu arka plan
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.cyanAccent.withOpacity(0.5)),
+        boxShadow: [BoxShadow(color: Colors.cyanAccent.withOpacity(0.2), blurRadius: 10)],
+      ),
+      textStyle: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, height: 1.5, letterSpacing: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      waitDuration: const Duration(milliseconds: 150), // Mouse gelince hemen açılsın
+      child: seatWidget,
     );
   }
 
@@ -408,6 +425,72 @@ class _OperationScreenState extends State<OperationScreen> {
         const SizedBox(width: 8),
         Text(text, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
       ],
+    );
+  }
+
+  void _showPassengerDetails(Map<String, dynamic> passenger) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF131C2D),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.cyanAccent.withOpacity(0.5)),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.person, color: passenger['gender'] == 'F' ? Colors.pinkAccent : Colors.blueAccent),
+            const SizedBox(width: 12),
+            const Text('YOLCU BİLGİSİ', style: TextStyle(color: Colors.white, fontSize: 18, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Ad Soyad:', passenger['name']),
+            _buildDetailRow('Koltuk No:', passenger['seat'].toString()),
+            _buildDetailRow('Varış:', passenger['dropoff']),
+            const SizedBox(height: 20),
+            const Divider(color: Colors.white10),
+            const SizedBox(height: 10),
+            const Text('OPERASYONEL EYLEMLER', style: TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  _addLog('🚨 MANUEL İŞLEM: ${passenger['name']} araçtan indirildi.');
+                  setState(() => passenger['alighted'] = true);
+                  Navigator.pop(context);
+                },
+                icon: const Icon(Icons.logout, color: Colors.white),
+                label: const Text('YOLCU İNDİ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.7)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('KAPAT', style: TextStyle(color: Colors.cyanAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 14)),
+          const SizedBox(width: 8),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 
@@ -437,7 +520,7 @@ class _OperationScreenState extends State<OperationScreen> {
                 IconData icon = Icons.info_outline;
 
                 if (log.contains('BİNİŞ') || log.contains('BAŞARILI')) { logColor = Colors.greenAccent; icon = Icons.check_circle; }
-                else if (log.contains('İNİŞ') || log.contains('HATASI')) { logColor = Colors.redAccent; icon = Icons.error_outline; }
+                else if (log.contains('İNİŞ') || log.contains('HATASI') || log.contains('MANUEL')) { logColor = Colors.redAccent; icon = Icons.error_outline; }
                 else if (log.contains('SİSTEM')) { logColor = Colors.cyanAccent; icon = Icons.wifi; }
 
                 return Padding(

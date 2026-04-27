@@ -17,14 +17,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Ekran açılır açılmaz verileri çekmeye başla
+    // Ekran açılır açılmaz veritabanından anlık istatistikleri çek!
     _statsFuture = _dashboardService.getSystemStats();
   }
 
-  // Güvenli Çıkış İşlemi
   void _logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token'); // Token'ı sil
+    await prefs.remove('auth_token'); // Güvenlik anahtarını imha et
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -35,26 +34,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF090E17), // Derin YOTA Karanlığı
       appBar: AppBar(
-        title: const Text('YOTA Yönetici Paneli', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E3A8A),
-        foregroundColor: Colors.white,
-        elevation: 0,
+        backgroundColor: const Color(0xFF131C2D),
+        title: Row(
+          children: [
+            const Icon(Icons.dashboard_customize, color: Colors.cyanAccent, size: 28),
+            const SizedBox(width: 12),
+            const Text('YOTA MERKEZ İSTASYON', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Güvenli Çıkış',
-            onPressed: _logout,
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.power_settings_new, color: Colors.redAccent, size: 20),
+              tooltip: 'Sistemden Çıkış Yap',
+              onPressed: _logout,
+            ),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: FutureBuilder<Map<String, dynamic>?>(
         future: _statsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Color(0xFF1E3A8A)));
+            return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
           } else if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('Veriler yüklenirken bir hata oluştu.', style: TextStyle(color: Colors.red)));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.cloud_off, color: Colors.redAccent, size: 64),
+                  SizedBox(height: 16),
+                  Text('VERİTABANI BAĞLANTISI KOPTU', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                ],
+              ),
+            );
           }
 
           final stats = snapshot.data!;
@@ -65,21 +87,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Sistem Özeti',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+                  'SİSTEM TELEMETRİSİ (CANLI)',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.cyanAccent, letterSpacing: 2),
                 ),
                 const SizedBox(height: 24),
                 Expanded(
                   child: GridView.count(
-                    crossAxisCount: MediaQuery.of(context).size.width > 600 ? 4 : 2, // Ekrana göre kolon sayısı
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.2,
+                    crossAxisCount: MediaQuery.of(context).size.width > 800 ? 4 : 2, // Geniş ekranda 4'lü, dar ekranda 2'li yan yana
+                    crossAxisSpacing: 20,
+                    mainAxisSpacing: 20,
+                    childAspectRatio: 1.3,
                     children: [
-                      _buildStatCard('Toplam Otobüs', stats['total_buses'].toString(), Icons.directions_bus, Colors.blue),
-                      _buildStatCard('Aktif Güzergâh', stats['total_routes'].toString(), Icons.map, Colors.orange),
-                      _buildStatCard('Planlı Sefer', stats['total_trips'].toString(), Icons.schedule, Colors.purple),
-                      _buildStatCard('Satılan Bilet', stats['active_tickets'].toString(), Icons.confirmation_number, Colors.green),
+                      _buildNeonStatCard('TOPLAM OTOBÜS', stats['total_buses'].toString(), Icons.directions_bus, Colors.blueAccent),
+                      _buildNeonStatCard('AKTİF ROTA', stats['total_routes'].toString(), Icons.map, Colors.purpleAccent),
+                      _buildNeonStatCard('PLANLI SEFER', stats['total_trips'].toString(), Icons.schedule, Colors.orangeAccent),
+                      _buildNeonStatCard('KESİLEN BİLET', stats['active_tickets'].toString(), Icons.confirmation_number, Colors.greenAccent),
                     ],
                   ),
                 ),
@@ -91,30 +113,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Kurumsal İstatistik Kartı Tasarımı
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: color),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87),
+  // Neon Parlamalı Kurumsal Kart Tasarımı
+  Widget _buildNeonStatCard(String title, String value, IconData icon, Color neonColor) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF131C2D),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: neonColor.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(color: neonColor.withOpacity(0.05), blurRadius: 20, spreadRadius: 2)
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -20,
+            top: -20,
+            child: Icon(icon, size: 100, color: neonColor.withOpacity(0.05)), // Arka plan dev ikon efekti
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: neonColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, size: 28, color: neonColor),
+                ),
+                const Spacer(),
+                Text(
+                  value,
+                  style: const TextStyle(fontSize: 42, fontWeight: FontWeight.w900, color: Colors.white, fontFamily: 'Courier'),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 12, color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
