@@ -138,11 +138,98 @@ class _OperationScreenState extends State<OperationScreen> {
               p['alighted'] = true;
             }
             _addLog('🏁 VARIŞ: Son durak. Tüm yolcular indirildi.');
+            
+            // FAZ 3: SEFER SONU RAPORU TETİKLEYİCİSİ
+            _showEndTripReport();
           }
         });
       });
     }
   }
+
+  // --- FAZ 3: SEFER SONU RAPOR MODALI (YENİ) ---
+  void _showEndTripReport() {
+    int totalPassengers = _passengers.length;
+    int femaleCount = _passengers.where((p) => p['gender'] == 'F').length;
+    int maleCount = totalPassengers - femaleCount;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Kullanıcı dışarı tıklayıp kapatamasın, işlemi bitirmek zorunda!
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF131C2D),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: Colors.cyanAccent, width: 2)),
+        title: Column(
+          children: [
+            const Icon(Icons.verified, color: Colors.cyanAccent, size: 56),
+            const SizedBox(height: 16),
+            const Text('SEFER TAMAMLANDI', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2)),
+            const SizedBox(height: 8),
+            const Text('TR-1001 Numaralı Ankara-Kastamonu Rotalı Araç Hedefe Ulaştı.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 14)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            const Divider(color: Colors.white10),
+            const SizedBox(height: 16),
+            _buildReportRow('Toplam Yolcu:', '$totalPassengers Kişi', Icons.groups),
+            _buildReportRow('Kadın / Erkek:', '$femaleCount / $maleCount', Icons.wc),
+            _buildReportRow('Sistem Logları:', '${_liveLogs.length} Kayıt', Icons.receipt_long),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  // PDF İndirme Simülasyonu ve Bildirimi
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('📄 PDF MANİFESTO HAZIRLANIYOR VE İNDİRİLİYOR...', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      backgroundColor: const Color(0xFF0F172A),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Colors.greenAccent)),
+                    )
+                  );
+                  _addLog('🖨️ RAPOR: Gün sonu PDF manifestosu başarıyla oluşturuldu.');
+                },
+                icon: const Icon(Icons.picture_as_pdf, color: Color(0xFF090E17)),
+                label: const Text('PDF MANİFESTO ÇIKTISI AL', style: TextStyle(color: Color(0xFF090E17), fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyanAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 10,
+                  shadowColor: Colors.cyanAccent.withOpacity(0.5),
+                ),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReportRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Colors.white38, size: 20),
+              const SizedBox(width: 12),
+              Text(label, style: const TextStyle(color: Colors.white54, fontSize: 14)),
+            ],
+          ),
+          Text(value, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+  // ---------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -194,19 +281,15 @@ class _OperationScreenState extends State<OperationScreen> {
           const SizedBox(width: 16),
         ],
       ),
-      // MİMARİ DEĞİŞİKLİK: Ekranı sıkıştırmamak için SingleChildScrollView kullanıyoruz
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 1. ÜST PANEL (TELEMETRİ)
             _buildTelemetryPanel(),
             const SizedBox(height: 24),
-            
-            // 2. ORTA PANEL (KOKPİT VE LOGLAR) - Sabit Yükseklik Verildi
             SizedBox(
-              height: 480, // İçerik ezilmesin diye ferah bir yükseklik
+              height: 480, 
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -217,10 +300,8 @@ class _OperationScreenState extends State<OperationScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
-            // 3. ALT PANEL (YOLCU VERİ TABLOSU) - Kendi uzunluğunu serbestçe belirler
             _buildPassengerTable(),
-            const SizedBox(height: 40), // En alttan biraz boşluk
+            const SizedBox(height: 40), 
           ],
         ),
       ),
@@ -357,7 +438,7 @@ class _OperationScreenState extends State<OperationScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         _buildSeat(baseSeat), 
-                        const SizedBox(width: 50), // Koridor Boşluğu
+                        const SizedBox(width: 50), 
                         _buildSeat(baseSeat + 1), 
                         const SizedBox(width: 12),
                         _buildSeat(baseSeat + 2), 
@@ -409,7 +490,7 @@ class _OperationScreenState extends State<OperationScreen> {
       onTap: passengerInfo == null ? null : () => _showPassengerDetails(passengerInfo),
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        width: 48, // Koltukları biraz daha büyüttük
+        width: 48, 
         height: 52,
         decoration: BoxDecoration(
           color: seatColor,
@@ -475,12 +556,12 @@ class _OperationScreenState extends State<OperationScreen> {
                   child: Center(child: Text('Veritabanında kayıtlı yolcu bulunmuyor.', style: TextStyle(color: Colors.white54, fontSize: 16))),
                 )
               : SizedBox(
-                  width: double.infinity, // Tabloyu tüm genişliğe yayar
+                  width: double.infinity, 
                   child: DataTable(
                     headingRowColor: MaterialStateProperty.all(Colors.white.withOpacity(0.02)),
                     headingTextStyle: const TextStyle(color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.2),
                     dataTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
-                    columnSpacing: 24, // Sütunlar arası boşluk
+                    columnSpacing: 24, 
                     horizontalMargin: 24,
                     columns: const [
                       DataColumn(label: Text('NO')),
@@ -618,8 +699,8 @@ class _OperationScreenState extends State<OperationScreen> {
                 IconData icon = Icons.info_outline;
 
                 if (log.contains('BİNİŞ') || log.contains('BAŞARILI') || log.contains('GELDİ')) { logColor = Colors.greenAccent; icon = Icons.check_circle; }
-                else if (log.contains('İNİŞ') || log.contains('HATASI') || log.contains('KOPTU') || log.contains('MANUEL')) { logColor = Colors.redAccent; icon = Icons.error_outline; }
-                else if (log.contains('SİSTEM')) { logColor = Colors.cyanAccent; icon = Icons.wifi; }
+                else if (log.contains('İNİŞ') || log.contains('HATASI') || log.contains('KOPTU') || log.contains('MANUEL') || log.contains('VARIŞ')) { logColor = Colors.redAccent; icon = Icons.error_outline; }
+                else if (log.contains('SİSTEM') || log.contains('RAPOR')) { logColor = Colors.cyanAccent; icon = Icons.wifi; }
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
