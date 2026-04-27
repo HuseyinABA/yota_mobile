@@ -18,19 +18,22 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleLogin() async {
     setState(() => _isLoading = true);
     
-    bool success = await _authService.login(
-      _emailController.text.trim(),
-      _passwordController.text.trim(),
-    );
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+
+    bool success = await _authService.login(email, password);
 
     setState(() => _isLoading = false);
 
     if (success) {
       if (!mounted) return;
-      // Giriş başarılıysa alt tarafta yeşil neon bir uyarı ver ve içeri al
+      
+      // MİMARİ KARAR: E-postada 'muavin' kelimesi geçiyorsa Saha Personeli, aksi halde Admin.
+      String role = email.toLowerCase().contains('muavin') ? 'MUAVIN' : 'ADMIN';
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('KİMLİK DOĞRULANDI. SİSTEME GİRİŞ YAPILIYOR...', style: TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          content: Text('KİMLİK DOĞRULANDI. YETKİ: $role', style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, letterSpacing: 1)),
           backgroundColor: const Color(0xFF131C2D),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Colors.greenAccent)),
@@ -39,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
       
       Future.delayed(const Duration(milliseconds: 500), () {
         if (!mounted) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const MainLayout()));
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainLayout(userRole: role)));
       });
     } else {
       if (!mounted) return;
@@ -57,14 +60,14 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF090E17), // YOTA VISION Karanlığı
+      backgroundColor: const Color(0xFF090E17), 
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
             child: Container(
               padding: const EdgeInsets.all(40.0),
-              constraints: const BoxConstraints(maxWidth: 450), // Mobilde tam ekran, Web'de şık bir kart
+              constraints: const BoxConstraints(maxWidth: 450), 
               decoration: BoxDecoration(
                 color: const Color(0xFF131C2D),
                 borderRadius: BorderRadius.circular(24),
@@ -89,7 +92,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 48),
                   
-                  // E-POSTA ALANI
                   TextField(
                     controller: _emailController,
                     style: const TextStyle(color: Colors.cyanAccent),
@@ -103,7 +105,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   
-                  // ŞİFRE ALANI
                   TextField(
                     controller: _passwordController,
                     obscureText: true,
@@ -118,7 +119,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 40),
                   
-                  // GİRİŞ BUTONU
                   SizedBox(
                     width: double.infinity,
                     height: 55,
