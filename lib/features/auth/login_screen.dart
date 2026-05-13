@@ -12,24 +12,27 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final AuthService _authService = AuthService();
+  final AuthService _authService = AuthService(); // Servis duruyor ama sunum için bypass ettik
   bool _isLoading = false;
 
   void _handleLogin() async {
     setState(() => _isLoading = true);
     
-    String email = _emailController.text.trim();
+    String email = _emailController.text.trim().toLowerCase();
     String password = _passwordController.text.trim();
 
-    bool success = await _authService.login(email, password);
+    // SUNUM İÇİN BASİTLEŞTİRİLMİŞ GİRİŞ MANTIĞI (Backend bypass edildi)
+    await Future.delayed(const Duration(seconds: 1)); // Loading animasyonu şık dursun diye
+    
+    bool success = ((email == 'admin' || email == 'muavin') && password == '123');
 
     setState(() => _isLoading = false);
 
     if (success) {
       if (!mounted) return;
       
-      // MİMARİ KARAR: E-postada 'muavin' kelimesi geçiyorsa Saha Personeli, aksi halde Admin.
-      String role = email.toLowerCase().contains('muavin') ? 'MUAVIN' : 'ADMIN';
+      // MİMARİ KARAR: Giriş yapan kişiye göre yetki belirleme
+      String role = email == 'muavin' ? 'MUAVIN' : 'ADMIN';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -48,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('ERİŞİM REDDEDİLDİ. YETKİSİZ GİRİŞ.', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          content: const Text('ERİŞİM REDDEDİLDİ. ID: admin/muavin, Şifre: 123 olmalı.', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 1)),
           backgroundColor: const Color(0xFF131C2D),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Colors.redAccent)),
@@ -87,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Operasyon Merkezi Kimlik Doğrulaması',
+                    'Simülasyon Merkezi Kimlik Doğrulaması',
                     style: TextStyle(color: Colors.white54, fontSize: 14),
                   ),
                   const SizedBox(height: 48),
@@ -96,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _emailController,
                     style: const TextStyle(color: Colors.cyanAccent),
                     decoration: InputDecoration(
-                      labelText: 'SİSTEM ID (E-POSTA)',
+                      labelText: 'SİSTEM ID',
                       labelStyle: const TextStyle(color: Colors.white38, letterSpacing: 1),
                       prefixIcon: const Icon(Icons.fingerprint, color: Colors.cyanAccent),
                       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white12)),
@@ -110,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     obscureText: true,
                     style: const TextStyle(color: Colors.cyanAccent),
                     decoration: InputDecoration(
-                      labelText: 'GÜVENLİK ANAHTARI (ŞİFRE)',
+                      labelText: 'GÜVENLİK ANAHTARI',
                       labelStyle: const TextStyle(color: Colors.white38, letterSpacing: 1),
                       prefixIcon: const Icon(Icons.lock_outline, color: Colors.cyanAccent),
                       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.white12)),
